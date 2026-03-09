@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+<main class="app-shell">
+  <div class="page page--app">
+    {% if message %}<div class="notice success page-notice">{{ message }}</div>{% endif %}
+    {% if error %}<div class="notice error page-notice">{{ error }}</div>{% endif %}
+
+    {% if current_user.is_admin %}
+    <div class="modal-shell" id="onboarding-editor-modal" hidden>
+      <div class="modal-backdrop" data-modal-close></div>
+      <section class="modal-card onboarding-editor-card" role="dialog" aria-modal="true" aria-labelledby="onboarding-editor-title">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Редактирование</p>
+            <h3 id="onboarding-editor-title">Изменить день адаптации</h3>
+          </div>
+          <button type="button" class="modal-close" data-modal-close aria-label="Закрыть">X</button>
+        </div>
+
+        <form
+          action="/admin/onboarding/{{ onboarding_day.id }}/update"
+          method="post"
+          class="onboarding-editor-form"
+          data-rich-editor-form
+          data-initial-day-number="{{ onboarding_day.day_number }}"
+          data-initial-title="{{ onboarding_day.title }}"
+          data-initial-media-url="{{ onboarding_day.media_url }}"
+          data-initial-media-type="{{ onboarding_day.media_type }}"
+        >
+          <div class="row two">
+            <label>
+              День
+              <select name="day_number" required>
+                <option value="">Выберите день</option>
+                {% for slot in day_slots %}
+                <option value="{{ slot.value }}"{% if not slot.available and slot.value != onboarding_day.day_number %} disabled{% endif %}>
+                  День {{ slot.value }}{% if not slot.available and slot.value != onboarding_day.day_number %} занят{% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              Заголовок
+              <input name="title" maxlength="255" required />
+            </label>
+          </div>
+
+          <div class="editor-toolbar" role="toolbar" aria-label="Панель форматирования">
+            <button type="button" data-editor-command="bold"><strong>B</strong></button>
+            <button type="button" data-editor-command="italic"><em>I</em></button>
+            <button type="button" data-editor-command="underline"><u>U</u></button>
+            <button type="button" data-editor-command="formatBlock" data-editor-value="h2">H2</button>
+            <button type="button" data-editor-command="formatBlock" data-editor-value="blockquote">""</button>
+            <button type="button" data-editor-command="insertUnorderedList">Список</button>
+            <button type="button" data-editor-command="insertOrderedList">1.</button>
+            <button type="button" data-editor-action="link">Ссылка</button>
+            <button type="button" data-editor-action="image">Изображение</button>
+            <button type="button" data-editor-action="video">Видео</button>
+            <button type="button" data-editor-action="clear">Очистить</button>
+          </div>
+
+          <div class="editor-dropzone" data-editor-dropzone>
+            <div
+              class="rich-editor"
+              contenteditable="true"
+              data-rich-editor
+              data-placeholder="Измените содержимое дня адаптации."
+            ></div>
+          </div>
+
+          <div class="editor-meta">
+            <p class="helper">Редактор поддерживает форматирование, вставку изображений и загрузку файлов.</p>
+            <div class="editor-status" data-editor-status>Редактор готов.</div>
+          </div>
+
+          <textarea name="text_content" hidden data-editor-output required></textarea>
+          <textarea hidden data-editor-initial-content>{{ onboarding_day.text_content }}</textarea>
+          <input name="media_url" type="hidden" data-primary-media-url />
+          <input name="media_type" type="hidden" data-primary-media-type />
+          <input type="file" accept="image/*,video/*" hidden data-editor-file-input />
+
+          <div class="modal-actions">
+            <button type="button" class="secondary" data-modal-close>Отмена</button>
+            <button type="submit">Сохранить изменения</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    {% endif %}
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Адаптация</p>
+          <h2>День {{ onboarding_day.day_number }}. {{ onboarding_day.title }}</h2>
+        </div>
+        <div class="onboarding-day-actions">
+          {% if current_user.is_admin %}
+          <button type="button" class="button-link" data-modal-open="onboarding-editor-modal">Редактировать</button>
+          <form action="/admin/onboarding/{{ onboarding_day.id }}/delete" method="post">
+            <button type="submit" class="danger" onclick="return confirm('Удалить этот день адаптации?');">Удалить</button>
+          </form>
+          {% endif %}
+          <a href="/onboarding" class="button-link secondary">Назад к дням</a>
+        </div>
+      </div>
+      {% if onboarding_progress %}
+      <article class="item item--soft onboarding-progress-card">
+        <div class="onboarding-progress-card__head">
+          <div>
+            <strong>Прогресс адаптации</strong>
+            <p class="helper" data-progress-summary>
+              Пройдено {{ onboarding_progress.completed }} из {{ onboarding_progress.total }} дней.
+            </p>
+          </div>
+          <span
+            class="badge{% if onboarding_progress.completed == onboarding_progress.total and onboarding_progress.total > 0 %} done{% endif %}"
+            data-progress-percent-label
+          >
+            {{ onboarding_progress.percent }}%
+          </span>
+        </div>
+        <div class="progress-bar" aria-label="Прогресс адаптации">
+          <span class="progress-bar__value" data-progress-bar style="width: {{ onboarding_progress.percent }}%;"></span>
+        </div>
+      </article>
+      {% endif %}
+
+      <article
+        class="item item--soft onboarding-day-card"
+        {% if onboarding_progress %}
+        data-progress-total="{{ onboarding_progress.total }}"
+        data-progress-completed="{{ onboarding_progress.completed }}"
+        {% endif %}
+      >
+        <div class="item-title">
+          <strong>День {{ onboarding_day.day_number }}</strong>
+          <span class="badge{% if onboarding_day.completed %} done{% endif %}" data-day-status-badge>
+            {% if onboarding_day.completed %}Завершено{% else %}В работе{% endif %}
+          </span>
+        </div>
+        <div class="rich-content">{{ onboarding_day.text_content | safe }}</div>
+        {% if onboarding_day.show_complete_action %}
+        <p
+          class="helper"
+          data-auto-complete-state
+          data-complete-url="/onboarding/{{ onboarding_day.id }}/complete-async"
+          data-day-completed="false"
+        >
+          День будет отмечен как завершенный автоматически, когда вы дочитаете его до конца.
+        </p>
+        <div class="onboarding-read-sentinel" aria-hidden="true" data-read-sentinel></div>
+        {% elif onboarding_day.completed %}
+        <p class="helper" data-auto-complete-state data-day-completed="true">День уже отмечен как завершенный.</p>
+        {% endif %}
+        {% if onboarding_day.completed_at %}
+        <p class="helper" data-completed-at-label>Завершено: {{ onboarding_day.completed_at }}</p>
+        {% endif %}
+      </article>
+    </section>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Навигация по сайту">
+    {% for item in bottom_nav %}
+    <a href="{{ item.href }}" class="bottom-nav__item{% if item.active %} is-active{% endif %}">
+      <span class="bottom-nav__icon">{{ item.icon }}</span>
+      <span class="bottom-nav__label">{{ item.label }}</span>
+    </a>
+    {% endfor %}
+    <details class="mobile-profile">
+      <summary class="bottom-nav__item mobile-profile__toggle">
+        <span class="bottom-nav__icon">◉</span>
+        <span class="bottom-nav__label">Профиль</span>
+      </summary>
+      <div class="mobile-profile__panel">
+        <strong>{{ current_user.username }}</strong>
+        <span>{{ current_user.role }}</span>
+        <form action="/logout" method="post">
+          <button type="submit">Выйти</button>
+        </form>
+      </div>
+    </details>
+  </nav>
+</main>
+{% endblock %}
+
+{% block page_scripts %}
+  {{ super() }}
+  <script src="/static/onboarding-editor.js"></script>
+  <script src="/static/onboarding-progress.js"></script>
+{% endblock %}

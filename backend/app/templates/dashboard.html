@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+<main class="app-shell">
+  <div class="page page--app">
+    {% if message %}
+    <div class="notice success page-notice">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="notice error page-notice">{{ error }}</div>
+    {% endif %}
+
+    <section class="stats-grid">
+      {% for stat in stats %}
+      <a href="{{ stat.href }}" class="stat-card">
+        <span class="stat-card__value">{{ stat.value }}</span>
+        <span class="stat-card__label">{{ stat.label }}</span>
+      </a>
+      {% endfor %}
+    </section>
+
+    <section class="dashboard-grid">
+      <div class="dashboard-main">
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Разделы</p>
+              <h2>Быстрые переходы</h2>
+            </div>
+          </div>
+          <div class="quick-links">
+            {% for link in quick_links %}
+            <a href="{{ link.href }}" class="quick-link-card">
+              <strong>{{ link.title }}</strong>
+              <p class="muted">{{ link.text }}</p>
+            </a>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+      <aside class="dashboard-side">
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Последнее</p>
+              <h2>Дни адаптации</h2>
+            </div>
+          </div>
+          <div class="items">
+            {% for item in recent_onboarding %}
+            <article class="item item--soft">
+              <div class="item-title">
+                <strong>День {{ item.day_number }}. {{ item.title }}</strong>
+                <span class="badge{% if item.completed %} done{% endif %}">
+                  {% if item.completed %}Завершено{% else %}В работе{% endif %}
+                </span>
+              </div>
+            </article>
+            {% else %}
+            <div class="empty">Пока нет материалов.</div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">База знаний</p>
+              <h2>Свежие статьи</h2>
+            </div>
+          </div>
+          <div class="items">
+            {% for article in recent_articles %}
+            <article class="item">
+              <div class="item-title">
+                <strong>{{ article.title }}</strong>
+                <span class="badge">{{ article.category_name }}</span>
+              </div>
+              <p>{{ article.text_content }}</p>
+            </article>
+            {% else %}
+            <div class="empty">Пока нет статей.</div>
+            {% endfor %}
+          </div>
+        </section>
+      </aside>
+    </section>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Навигация по сайту">
+    {% for item in bottom_nav %}
+    <a href="{{ item.href }}" class="bottom-nav__item{% if item.active %} is-active{% endif %}">
+      <span class="bottom-nav__icon">{{ item.icon }}</span>
+      <span class="bottom-nav__label">{{ item.label }}</span>
+    </a>
+    {% endfor %}
+    <details class="mobile-profile">
+      <summary class="bottom-nav__item mobile-profile__toggle">
+        <span class="bottom-nav__icon">◉</span>
+        <span class="bottom-nav__label">Профиль</span>
+      </summary>
+      <div class="mobile-profile__panel">
+        <strong>{{ current_user.username }}</strong>
+        <span>{{ current_user.role }}</span>
+        <form action="/logout" method="post">
+          <button type="submit">Выйти</button>
+        </form>
+      </div>
+    </details>
+  </nav>
+</main>
+{% endblock %}

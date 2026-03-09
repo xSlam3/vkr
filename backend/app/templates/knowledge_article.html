@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+<main class="app-shell">
+  <div class="page page--app">
+    {% if message %}<div class="notice success page-notice">{{ message }}</div>{% endif %}
+    {% if error %}<div class="notice error page-notice">{{ error }}</div>{% endif %}
+
+    {% if current_user.is_admin %}
+    <div class="modal-shell" id="knowledge-article-edit-modal" hidden>
+      <div class="modal-backdrop" data-modal-close></div>
+      <section class="modal-card onboarding-editor-card" role="dialog" aria-modal="true" aria-labelledby="knowledge-article-edit-title">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Статьи</p>
+            <h3 id="knowledge-article-edit-title">Редактировать статью</h3>
+          </div>
+          <button type="button" class="modal-close" data-modal-close aria-label="Закрыть">×</button>
+        </div>
+
+        <form
+          action="/admin/knowledge/articles/{{ article.id }}/update"
+          method="post"
+          class="onboarding-editor-form"
+          data-rich-editor-form
+          data-upload-scope="knowledge"
+          data-initial-title="{{ article.title }}"
+          data-initial-category-id="{{ article.category_id }}"
+          data-initial-media-url="{{ article.raw_media_url }}"
+          data-initial-media-type="{{ article.media_type }}"
+        >
+          <div class="row two">
+            <label>
+              Заголовок
+              <input name="title" maxlength="255" required data-modal-focus />
+            </label>
+            <label>
+              Категория
+              <select name="category_id" required>
+                <option value="">Выберите категорию</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}"{% if category.selected %} selected{% endif %}>{{ category.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+
+          <div class="editor-toolbar" role="toolbar" aria-label="Панель форматирования">
+            <button type="button" data-editor-command="bold"><strong>B</strong></button>
+            <button type="button" data-editor-command="italic"><em>I</em></button>
+            <button type="button" data-editor-command="underline"><u>U</u></button>
+            <button type="button" data-editor-command="formatBlock" data-editor-value="h2">H2</button>
+            <button type="button" data-editor-command="formatBlock" data-editor-value="blockquote">""</button>
+            <button type="button" data-editor-command="insertUnorderedList">Список</button>
+            <button type="button" data-editor-command="insertOrderedList">1.</button>
+            <button type="button" data-editor-action="link">Ссылка</button>
+            <button type="button" data-editor-action="image">Изображение</button>
+            <button type="button" data-editor-action="video">Видео</button>
+            <button type="button" data-editor-action="clear">Очистить</button>
+          </div>
+
+          <div class="editor-dropzone" data-editor-dropzone>
+            <div
+              class="rich-editor"
+              contenteditable="true"
+              data-rich-editor
+              data-placeholder="Измените содержимое статьи."
+            ></div>
+          </div>
+
+          <div class="editor-meta">
+            <p class="helper">Редактор поддерживает форматирование, вставку изображений и загрузку файлов.</p>
+            <div class="editor-status" data-editor-status>Редактор готов.</div>
+          </div>
+
+          <textarea name="text_content" hidden data-editor-output required></textarea>
+          <textarea hidden data-editor-initial-content>{{ article.raw_text_content }}</textarea>
+          <input name="media_url" type="hidden" data-primary-media-url />
+          <input name="media_type" type="hidden" data-primary-media-type />
+          <input type="file" accept="image/*,video/*" hidden data-editor-file-input />
+
+          <div class="modal-actions">
+            <button type="button" class="secondary" data-modal-close>Отмена</button>
+            <button type="submit">Сохранить изменения</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    {% endif %}
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">{{ article.category_name }}</p>
+          <h2>{{ article.title }}</h2>
+        </div>
+        <div class="onboarding-day-actions">
+          {% if current_user.is_admin %}
+          <button type="button" class="button-link" data-modal-open="knowledge-article-edit-modal">Редактировать</button>
+          <form action="/admin/knowledge/articles/{{ article.id }}/delete" method="post">
+            <button type="submit" class="danger" onclick="return confirm('Удалить эту статью?');">Удалить</button>
+          </form>
+          {% endif %}
+          <a href="/knowledge" class="button-link secondary">Назад к статьям</a>
+        </div>
+      </div>
+
+      <article class="item item--soft knowledge-article-card">
+        <div class="item-title">
+          <strong>{{ article.title }}</strong>
+          <span class="badge">{{ article.category_name }}</span>
+        </div>
+        <div class="rich-content">{{ article.text_content | safe }}</div>
+        <p class="article-meta">
+          Обновлено: {{ article.updated_at }} · Медиа: {{ article.media_type }}{% if article.media_url %} · доступно в содержимом статьи{% endif %}
+        </p>
+      </article>
+    </section>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Навигация по сайту">
+    {% for item in bottom_nav %}
+    <a href="{{ item.href }}" class="bottom-nav__item{% if item.active %} is-active{% endif %}">
+      <span class="bottom-nav__icon">{{ item.icon }}</span>
+      <span class="bottom-nav__label">{{ item.label }}</span>
+    </a>
+    {% endfor %}
+    <details class="mobile-profile">
+      <summary class="bottom-nav__item mobile-profile__toggle">
+        <span class="bottom-nav__icon">◉</span>
+        <span class="bottom-nav__label">Профиль</span>
+      </summary>
+      <div class="mobile-profile__panel">
+        <strong>{{ current_user.username }}</strong>
+        <span>{{ current_user.role }}</span>
+        <form action="/logout" method="post">
+          <button type="submit">Выйти</button>
+        </form>
+      </div>
+    </details>
+  </nav>
+</main>
+{% endblock %}
+
+{% block page_scripts %}
+  {{ super() }}
+  <script src="/static/onboarding-editor.js"></script>
+{% endblock %}

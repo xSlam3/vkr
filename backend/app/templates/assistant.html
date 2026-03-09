@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+<main class="app-shell">
+  <div class="page page--app">
+    <input type="checkbox" id="assistant-history-toggle" class="assistant-history-toggle" hidden />
+    {% if message %}<div class="notice success page-notice">{{ message }}</div>{% endif %}
+    {% if error %}<div class="notice error page-notice">{{ error }}</div>{% endif %}
+
+    <section class="assistant-panel">
+      <label for="assistant-history-toggle" class="assistant-history-backdrop" aria-hidden="true"></label>
+
+      <aside class="assistant-history">
+        <div class="assistant-history__head">
+          <p class="eyebrow">&#1063;&#1072;&#1090;&#1099;</p>
+          <h2>&#1048;&#1089;&#1090;&#1086;&#1088;&#1080;&#1103;</h2>
+          <label for="assistant-history-toggle" class="assistant-history__close" aria-label="&#1047;&#1072;&#1082;&#1088;&#1099;&#1090;&#1100;">&times;</label>
+        </div>
+
+        <a href="/assistant" class="assistant-history__new">&#1053;&#1086;&#1074;&#1099;&#1081; &#1095;&#1072;&#1090;</a>
+
+        <div class="assistant-history__list">
+          {% if chat_sessions %}
+          {% for chat in chat_sessions %}
+          <a href="/assistant?chat_id={{ chat.id }}" class="assistant-history__item{% if chat.active %} is-active{% endif %}">
+            <strong>{{ chat.title }}</strong>
+            <span>{{ chat.updated_at }}</span>
+          </a>
+          {% endfor %}
+          {% else %}
+          <div class="assistant-history__empty">&#1048;&#1089;&#1090;&#1086;&#1088;&#1080;&#1103; &#1095;&#1072;&#1090;&#1086;&#1074; &#1087;&#1086;&#1082;&#1072; &#1087;&#1091;&#1089;&#1090;&#1072;.</div>
+          {% endif %}
+        </div>
+      </aside>
+
+      <div class="assistant-chat">
+        <header class="assistant-chat__mobile-topbar">
+          <label for="assistant-history-toggle" class="assistant-chat__menu" aria-label="&#1054;&#1090;&#1082;&#1088;&#1099;&#1090;&#1100; &#1080;&#1089;&#1090;&#1086;&#1088;&#1080;&#1102;">&#9776;</label>
+          <div class="assistant-chat__mobile-title">&#1040;&#1089;&#1089;&#1080;&#1089;&#1090;&#1077;&#1085;&#1090;</div>
+          <div class="assistant-chat__mobile-spacer"></div>
+        </header>
+
+        <div class="assistant-chat__thread">
+          {% if not chat_messages and not chat_question and not chat_response %}
+          <div class="assistant-chat__empty">
+            <h1>&#1063;&#1077;&#1084; &#1103; &#1084;&#1086;&#1075;&#1091; &#1087;&#1086;&#1084;&#1086;&#1095;&#1100;?</h1>
+          </div>
+          {% endif %}
+
+          {% for message in chat_messages %}
+          <article class="assistant-chat__message assistant-chat__message--{{ 'user' if message.role == 'user' else 'bot' }}">
+            <div class="assistant-chat__bubble assistant-chat__bubble--{{ 'user' if message.role == 'user' else 'bot' }}">{{ message.content }}</div>
+          </article>
+          {% endfor %}
+
+          {% if chat_response and not chat_messages %}
+          <article class="assistant-chat__message assistant-chat__message--bot">
+            <div class="assistant-chat__bubble assistant-chat__bubble--bot">{{ chat_response.answer }}</div>
+          </article>
+          {% endif %}
+        </div>
+
+        <div class="assistant-chat__composer-wrap">
+          <form action="/assistant/ask" method="post" class="assistant-chat__composer">
+            <input type="hidden" name="chat_id" value="{{ active_chat_id }}" />
+            <label class="assistant-chat__input">
+              <textarea
+                name="question"
+                required
+                placeholder="&#1057;&#1087;&#1088;&#1086;&#1089;&#1080;&#1090;&#1077; &#1072;&#1089;&#1089;&#1080;&#1089;&#1090;&#1077;&#1085;&#1090;&#1072; &#1087;&#1086; &#1073;&#1072;&#1079;&#1077; &#1079;&#1085;&#1072;&#1085;&#1080;&#1081;"
+              >{{ chat_question }}</textarea>
+            </label>
+            <button type="submit" class="assistant-chat__submit" aria-label="&#1054;&#1090;&#1087;&#1088;&#1072;&#1074;&#1080;&#1090;&#1100;">&uarr;</button>
+          </form>
+          <p class="assistant-chat__hint">&#1040;&#1089;&#1089;&#1080;&#1089;&#1090;&#1077;&#1085;&#1090; &#1089;&#1072;&#1084; &#1080;&#1097;&#1077;&#1090; &#1087;&#1086;&#1076;&#1093;&#1086;&#1076;&#1103;&#1097;&#1080;&#1077; &#1089;&#1090;&#1072;&#1090;&#1100;&#1080; &#1074; &#1073;&#1072;&#1079;&#1077; &#1079;&#1085;&#1072;&#1085;&#1080;&#1081; &#1080; &#1086;&#1090;&#1074;&#1077;&#1095;&#1072;&#1077;&#1090; &#1087;&#1086; &#1085;&#1072;&#1081;&#1076;&#1077;&#1085;&#1085;&#1086;&#1084;&#1091; &#1082;&#1086;&#1085;&#1090;&#1077;&#1082;&#1089;&#1090;&#1091;.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <nav class="bottom-nav" aria-label="&#1053;&#1072;&#1074;&#1080;&#1075;&#1072;&#1094;&#1080;&#1103; &#1087;&#1086; &#1089;&#1072;&#1081;&#1090;&#1091;">
+    {% for item in bottom_nav %}
+    <a href="{{ item.href }}" class="bottom-nav__item{% if item.active %} is-active{% endif %}">
+      <span class="bottom-nav__icon">{{ item.icon }}</span>
+      <span class="bottom-nav__label">{{ item.label }}</span>
+    </a>
+    {% endfor %}
+    <details class="mobile-profile">
+      <summary class="bottom-nav__item mobile-profile__toggle">
+        <span class="bottom-nav__icon">&#9673;</span>
+        <span class="bottom-nav__label">&#1055;&#1088;&#1086;&#1092;&#1080;&#1083;&#1100;</span>
+      </summary>
+      <div class="mobile-profile__panel">
+        <strong>{{ current_user.username }}</strong>
+        <span>{{ current_user.role }}</span>
+        <form action="/logout" method="post">
+          <button type="submit">&#1042;&#1099;&#1081;&#1090;&#1080;</button>
+        </form>
+      </div>
+    </details>
+  </nav>
+</main>
+{% endblock %}

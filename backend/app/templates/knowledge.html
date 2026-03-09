@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+<main class="app-shell">
+  <div class="page page--app">
+    {% if message %}<div class="notice success page-notice">{{ message }}</div>{% endif %}
+    {% if error %}<div class="notice error page-notice">{{ error }}</div>{% endif %}
+
+    {% if current_user.is_admin %}
+    <div class="modal-shell" id="knowledge-category-modal" hidden>
+      <div class="modal-backdrop" data-modal-close></div>
+      <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="knowledge-category-title">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Категории</p>
+            <h3 id="knowledge-category-title">Добавить категорию</h3>
+          </div>
+          <button type="button" class="modal-close" data-modal-close aria-label="Закрыть">×</button>
+        </div>
+        <form action="/admin/knowledge/categories" method="post" class="modal-form">
+          <label>
+            Название категории
+            <input name="name" required data-modal-focus />
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="secondary" data-modal-close>Отмена</button>
+            <button type="submit">Создать категорию</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-shell" id="knowledge-article-modal" hidden>
+      <div class="modal-backdrop" data-modal-close></div>
+      <section class="modal-card onboarding-editor-card" role="dialog" aria-modal="true" aria-labelledby="knowledge-article-title">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">Статьи</p>
+            <h3 id="knowledge-article-title">Добавить статью</h3>
+          </div>
+          <button type="button" class="modal-close" data-modal-close aria-label="Закрыть">×</button>
+        </div>
+
+        <form
+          action="/admin/knowledge/articles"
+          method="post"
+          class="onboarding-editor-form"
+          data-rich-editor-form
+          data-upload-scope="knowledge"
+        >
+          <div class="row two">
+            <label>
+              Заголовок
+              <input name="title" maxlength="255" required data-modal-focus />
+            </label>
+            <label>
+              Категория
+              <select name="category_id" required>
+                <option value="">Выберите категорию</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}">{{ category.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+
+          <div class="editor-toolbar" role="toolbar" aria-label="Панель форматирования">
+            <button type="button" data-editor-command="bold"><strong>B</strong></button>
+            <button type="button" data-editor-command="italic"><em>I</em></button>
+            <button type="button" data-editor-command="underline"><u>U</u></button>
+            <button type="button" data-editor-command="formatBlock" data-editor-value="h2">H2</button>
+            <button type="button" data-editor-command="formatBlock" data-editor-value="blockquote">""</button>
+            <button type="button" data-editor-command="insertUnorderedList">Список</button>
+            <button type="button" data-editor-command="insertOrderedList">1.</button>
+            <button type="button" data-editor-action="link">Ссылка</button>
+            <button type="button" data-editor-action="image">Изображение</button>
+            <button type="button" data-editor-action="video">Видео</button>
+            <button type="button" data-editor-action="clear">Очистить</button>
+          </div>
+
+          <div class="editor-dropzone" data-editor-dropzone>
+            <div
+              class="rich-editor"
+              contenteditable="true"
+              data-rich-editor
+              data-placeholder="Введите текст статьи. Поддерживаются заголовки, списки, цитаты, ссылки и вставка изображений."
+            ></div>
+          </div>
+
+          <div class="editor-meta">
+            <p class="helper">Редактор работает так же, как в адаптации: можно форматировать текст, вставлять изображения и загружать видео.</p>
+            <div class="editor-status" data-editor-status>Редактор готов.</div>
+          </div>
+
+          <textarea name="text_content" hidden data-editor-output required></textarea>
+          <input name="media_url" type="hidden" data-primary-media-url />
+          <input name="media_type" type="hidden" data-primary-media-type />
+          <input type="file" accept="image/*,video/*" hidden data-editor-file-input />
+
+          <div class="modal-actions">
+            <button type="button" class="secondary" data-modal-close>Отмена</button>
+            <button type="submit">Добавить статью</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    {% endif %}
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Поиск</p>
+          <h2>Материалы и инструкции</h2>
+        </div>
+        {% if current_user.is_admin %}
+        <div class="section-actions">
+          <button type="button" class="secondary" data-modal-open="knowledge-category-modal">Добавить категорию</button>
+          <button type="button" data-modal-open="knowledge-article-modal">Добавить статью</button>
+        </div>
+        {% endif %}
+      </div>
+
+      <form action="/knowledge" method="get" class="filter-form">
+        <div class="row two">
+          <label>
+            Поиск
+            <input name="search" value="{{ article_search }}" />
+          </label>
+          <label>
+            Категория
+            <select name="category_id">
+              <option value="">Все категории</option>
+              {% for category in categories %}
+              <option value="{{ category.id }}"{% if category.selected %} selected{% endif %}>{{ category.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+        <button type="submit">Показать статьи</button>
+      </form>
+
+      <div class="items knowledge-list">
+        {% for article in articles %}
+        <article class="item item--soft knowledge-article-card">
+          <div class="item-title">
+            <strong>{{ article.title }}</strong>
+            <span class="badge">{{ article.category_name }}</span>
+          </div>
+          <p class="article-meta">Обновлено: {{ article.updated_at }}</p>
+          <div class="knowledge-article-card__actions">
+            <a href="/knowledge/{{ article.id }}" class="button-link">Просмотреть</a>
+          </div>
+        </article>
+        {% else %}
+        <div class="empty">Статьи не найдены.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Навигация по сайту">
+    {% for item in bottom_nav %}
+    <a href="{{ item.href }}" class="bottom-nav__item{% if item.active %} is-active{% endif %}">
+      <span class="bottom-nav__icon">{{ item.icon }}</span>
+      <span class="bottom-nav__label">{{ item.label }}</span>
+    </a>
+    {% endfor %}
+    <details class="mobile-profile">
+      <summary class="bottom-nav__item mobile-profile__toggle">
+        <span class="bottom-nav__icon">◉</span>
+        <span class="bottom-nav__label">Профиль</span>
+      </summary>
+      <div class="mobile-profile__panel">
+        <strong>{{ current_user.username }}</strong>
+        <span>{{ current_user.role }}</span>
+        <form action="/logout" method="post">
+          <button type="submit">Выйти</button>
+        </form>
+      </div>
+    </details>
+  </nav>
+</main>
+{% endblock %}
+
+{% block page_scripts %}
+  {{ super() }}
+  <script src="/static/onboarding-editor.js"></script>
+{% endblock %}

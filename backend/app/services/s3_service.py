@@ -1,6 +1,7 @@
 import mimetypes
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import HTTPException, status
 
@@ -127,3 +128,36 @@ class S3Service:
             return f"{endpoint}/{settings.S3_BUCKET}/{key}"
         region = settings.S3_REGION
         return f"https://{settings.S3_BUCKET}.s3.{region}.amazonaws.com/{key}"
+
+    @staticmethod
+    def key_from_url(url: str) -> str | None:
+        if not url:
+            return None
+
+        if url.startswith("data:"):
+            return None
+
+        if "://" not in url and not url.startswith("/"):
+            S3Service._validate_key(url)
+            return url
+
+        parsed = urlparse(url)
+        path = parsed.path.lstrip("/")
+        if not path:
+            return None
+
+        if settings.S3_ENDPOINT_URL:
+            endpoint = urlparse(settings.S3_ENDPOINT_URL)
+            if parsed.netloc == endpoint.netloc:
+                prefix = f"{settings.S3_BUCKET}/"
+                if path.startswith(prefix):
+                    key = path[len(prefix) :]
+                    S3Service._validate_key(key)
+                    return key
+
+        aws_host = f"{settings.S3_BUCKET}.s3.{settings.S3_REGION}.amazonaws.com"
+        if parsed.netloc == aws_host:
+            S3Service._validate_key(path)
+            return path
+
+        return None

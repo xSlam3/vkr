@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -60,7 +62,9 @@ class VectorService:
 
     @staticmethod
     def _chunk_text(text: str) -> list[str]:
-        raw = (text or "").strip()
+        raw = re.sub(r"<[^>]+>", " ", text or "")
+        raw = html.unescape(raw)
+        raw = re.sub(r"\s+", " ", raw).strip()
         if not raw:
             return []
 

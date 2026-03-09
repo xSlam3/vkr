@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f4f6fb" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/app.css" />
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="page-{{ page_name }}">
+  {% if current_user and bottom_nav %}
+  <div class="learn-layout">
+    <aside class="learn-sidebar">
+      <a href="/dashboard" class="learn-brand">
+        <span class="learn-brand__mark">J</span>
+        <span class="learn-brand__text">
+          <strong>Jewelry</strong>
+          <span>Onboarding</span>
+        </span>
+      </a>
+
+      <nav class="learn-sidebar__nav" aria-label="Основная навигация">
+        {% for item in bottom_nav %}
+        <a href="{{ item.href }}" class="learn-nav-link{% if item.active %} is-active{% endif %}">
+          <span class="learn-nav-link__icon">{{ item.icon }}</span>
+          <span>{{ item.label }}</span>
+        </a>
+        {% endfor %}
+      </nav>
+
+      <div class="learn-sidebar__footer">
+        <div class="learn-user-card">
+          <strong>{{ current_user.username }}</strong>
+          <span>{{ current_user.role }}</span>
+          <form action="/logout" method="post" class="learn-sidebar__logout">
+            <button class="secondary button-small" type="submit">Выйти</button>
+          </form>
+        </div>
+      </div>
+    </aside>
+
+    <div class="learn-main">
+  {% endif %}
+      {% block page_content %}{% endblock %}
+  {% if current_user and bottom_nav %}
+    </div>
+  </div>
+  {% endif %}
+  {% block page_scripts %}{% endblock %}
+</body>
+</html>

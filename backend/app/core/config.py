@@ -1,4 +1,27 @@
 import os
+from pathlib import Path
+
+
+def _load_env_file() -> None:
+    candidate_paths = [
+        Path(__file__).resolve().parents[3] / ".env.local",
+        Path(__file__).resolve().parents[2] / ".env.local",
+    ]
+    for path in candidate_paths:
+        if not path.exists():
+            continue
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+_load_env_file()
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -43,6 +66,8 @@ class Settings:
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "")
     LLM_TEMPERATURE: float = _env_float("LLM_TEMPERATURE", 0.1)
+    LLM_APP_NAME: str = os.getenv("LLM_APP_NAME", "Jewelry Onboarding")
+    LLM_HTTP_REFERER: str = os.getenv("LLM_HTTP_REFERER", "http://localhost")
 
 
 settings = Settings()

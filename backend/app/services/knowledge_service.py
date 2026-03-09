@@ -9,6 +9,7 @@ from app.schemas.knowledge import (
     KnowledgeArticleCreate,
     KnowledgeArticleUpdate,
 )
+from app.services.rich_text_service import RichTextService
 from app.services.vector_service import VectorService
 
 
@@ -56,6 +57,7 @@ class KnowledgeService:
             raise HTTPException(status_code=404, detail="Category not found")
 
         data = payload.model_dump()
+        data["text_content"] = RichTextService.sanitize(data["text_content"])
         data["last_edited_by"] = current_user.id
         article = KnowledgeRepository.create_article(db, data)
         VectorService.upsert_article(
@@ -99,6 +101,9 @@ class KnowledgeService:
 
         if not update_data:
             return article
+
+        if "text_content" in update_data:
+            update_data["text_content"] = RichTextService.sanitize(update_data["text_content"])
 
         update_data["last_edited_by"] = current_user.id
         updated_article = KnowledgeRepository.update_article(db, article, update_data)

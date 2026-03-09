@@ -1,15 +1,111 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+import html
+import re
 
 import httpx
 
 from app.core.config import settings
+from app.db.session import SessionLocal
 from app.schemas.chat import ChatResponse, ChatSource
+from app.repositories.knowledge_repo import KnowledgeRepository
 from app.services.vector_service import RetrievedChunk, VectorService
 
 
 class ChatService:
+    @staticmethod
+    def _normalize_text(value: str) -> str:
+        plain = re.sub(r"<[^>]+>", " ", value or "")
+        plain = html.unescape(plain)
+        return re.sub(r"\s+", " ", plain).strip().lower()
+
+    @staticmethod
+    def _extract_terms(question: str) -> list[str]:
+        words = re.findall(r"[A-Za-zА-Яа-яЁё0-9]+", (question or "").lower())
+        unique_terms: list[str] = []
+        for word in words:
+            if len(word) < 4:
+                continue
+            candidates = [word]
+            if len(word) >= 5:
+                candidates.append(word[:5])
+            if len(word) >= 4:
+                candidates.append(word[:4])
+            for candidate in candidates:
+                if candidate not in unique_terms:
+                    unique_terms.append(candidate)
+        return unique_terms
+
+    @staticmethod
+    def _keyword_fallback(question: str, top_k: int | None = None, category_id: str | None = None) -> list[RetrievedChunk]:
+        terms = ChatService._extract_terms(question)
+        if not terms:
+            return []
+
+        db = SessionLocal()
+        try:
+            articles = KnowledgeRepository.list_articles(db, category_id=category_id)
+        finally:
+            db.close()
+
+        matches: list[tuple[int, RetrievedChunk]] = []
+        for article in articles:
+            title = ChatService._normalize_text(article.title)
+            text = ChatService._normalize_text(article.text_content)
+            title_tokens = re.findall(r"[a-zа-яё0-9]+", title)
+            text_tokens = re.findall(r"[a-zа-яё0-9]+", text)
+
+            score = 0
+            for term in terms:
+                if term in title or any(token.startswith(term) for token in title_tokens):
+                    score += 3
+                if term in text or any(token.startswith(term) for token in text_tokens):
+                    score += 1
+
+            if score <= 0:
+                continue
+
+            matches.append(
+                (
+                    score,
+                    RetrievedChunk(
+                        article_id=article.id,
+                        title=article.title,
+                        category_id=article.category_id,
+                        chunk_index=0,
+                        text=ChatService._normalize_text(article.text_content),
+                        score=min(score / max(len(terms) * 3, 1), 1.0),
+                    ),
+                )
+            )
+
+        matches.sort(key=lambda item: item[0], reverse=True)
+        limit = max(1, top_k or settings.VECTOR_TOP_K)
+        return [chunk for _, chunk in matches[:limit]]
+
+    @staticmethod
+    def _merge_chunks(primary: list[RetrievedChunk], secondary: list[RetrievedChunk], top_k: int | None = None) -> list[RetrievedChunk]:
+        merged: OrderedDict[tuple[str, int], RetrievedChunk] = OrderedDict()
+        for chunk in secondary + primary:
+            key = (chunk.article_id, chunk.chunk_index)
+            existing = merged.get(key)
+            if existing is None:
+                merged[key] = chunk
+                continue
+            existing_score = existing.score or 0.0
+            chunk_score = chunk.score or 0.0
+            if chunk_score > existing_score:
+                merged[key] = chunk
+
+        result = sorted(
+            merged.values(),
+            key=lambda item: item.score if item.score is not None else 0.0,
+            reverse=True,
+        )
+        limit = max(1, top_k or settings.VECTOR_TOP_K)
+        return result[:limit]
+
     @staticmethod
     def _filter_chunks(chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
         min_score = settings.VECTOR_MIN_SCORE
@@ -70,13 +166,14 @@ class ChatService:
                     "role": "system",
                     "content": (
                         "Ты помощник для сотрудников ювелирного магазина. "
-                        "Отвечай только по контексту и не выдумывай данные."
+                        "Сначала изучи найденные статьи из базы знаний, затем ответь на вопрос пользователя. "
+                        "Отвечай только по переданному контексту. Если данных недостаточно, прямо скажи об этом и не выдумывай факты."
                     ),
                 },
                 {
                     "role": "user",
                     "content": (
-                        "Контекст:\n"
+                        "Найденные статьи:\n"
                         f"{context}\n\n"
                         f"Вопрос: {question}"
                     ),
@@ -84,12 +181,16 @@ class ChatService:
             ],
         }
 
-        headers = {"Content-Type": "application/json"}
+        headers = {
+            "Content-Type": "application/json",
+            "HTTP-Referer": settings.LLM_HTTP_REFERER,
+            "X-Title": settings.LLM_APP_NAME,
+        }
         if settings.LLM_API_KEY:
             headers["Authorization"] = f"Bearer {settings.LLM_API_KEY}"
 
         try:
-            response = httpx.post(url, json=payload, headers=headers, timeout=30.0)
+            response = httpx.post(url, json=payload, headers=headers, timeout=60.0)
             response.raise_for_status()
             data = response.json()
             return data["choices"][0]["message"]["content"].strip()
@@ -104,6 +205,8 @@ class ChatService:
             category_id=category_id,
         )
         filtered = ChatService._filter_chunks(chunks)
+        keyword_chunks = ChatService._keyword_fallback(question, top_k=top_k, category_id=category_id)
+        filtered = ChatService._merge_chunks(filtered, keyword_chunks, top_k=top_k)
 
         if not filtered:
             return ChatResponse(

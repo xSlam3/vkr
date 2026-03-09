@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+<main class="auth-shell">
+  <section class="auth-card auth-card--wide">
+    <div class="brand">
+      <div class="brand-mark">GG</div>
+      <p class="eyebrow">Jewelry Onboarding</p>
+      <h1>{{ heading }}</h1>
+      <p class="muted">{{ subtext }}</p>
+    </div>
+
+    {% if message %}
+    <div class="notice success">{{ message }}</div>
+    {% endif %}
+    {% if error %}
+    <div class="notice error">{{ error }}</div>
+    {% endif %}
+
+    <form action="{{ action }}" method="post" autocomplete="on">
+      <label>
+        Логин
+        <input name="username" type="text" required />
+      </label>
+      <label>
+        Пароль
+        <input name="password" type="password" required />
+      </label>
+      {% if not has_users %}
+      <label>
+        Роль
+        <input name="role" value="admin" readonly />
+      </label>
+      {% endif %}
+      <button type="submit">{{ submit_label }}</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

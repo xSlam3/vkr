@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.models.user import User
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.chat_service import ChatService
@@ -15,6 +16,6 @@ def ask_chat(
 ):
     return ChatService.ask(
         question=payload.question,
-        top_k=payload.top_k,
-        category_id=payload.category_id,
+        top_k=max(settings.VECTOR_TOP_K, 8),
+        category_id=None,
     )

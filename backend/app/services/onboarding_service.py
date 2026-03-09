@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.user import User, UserRole
 from app.repositories.onboarding_repo import OnboardingRepository
 from app.schemas.onboarding import OnboardingDayCreate, OnboardingDayUpdate, OnboardingDayWithProgress
+from app.services.rich_text_service import RichTextService
 
 
 class OnboardingService:
@@ -13,7 +14,9 @@ class OnboardingService:
     def create_day(db: Session, payload: OnboardingDayCreate):
         if OnboardingRepository.get_day_by_number(db, payload.day_number):
             raise HTTPException(status_code=400, detail="Day number already exists")
-        return OnboardingRepository.create_day(db, payload.model_dump())
+        data = payload.model_dump()
+        data["text_content"] = RichTextService.sanitize(data["text_content"])
+        return OnboardingRepository.create_day(db, data)
 
     @staticmethod
     def list_days(db: Session):
@@ -36,6 +39,9 @@ class OnboardingService:
             existing = OnboardingRepository.get_day_by_number(db, new_day_number)
             if existing:
                 raise HTTPException(status_code=400, detail="Day number already exists")
+
+        if "text_content" in update_data:
+            update_data["text_content"] = RichTextService.sanitize(update_data["text_content"])
 
         if not update_data:
             return day

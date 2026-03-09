@@ -1,5 +1,4 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
@@ -7,9 +6,6 @@ from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
 from app.core.security import decode_access_token
 from jose import JWTError
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
-oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/users/login", auto_error=False)
 
 
 def get_db():
@@ -43,20 +39,38 @@ def _resolve_user_from_token(db: Session, token: str) -> User:
     return user
 
 
+def _extract_token(request: Request) -> str | None:
+    authorization = request.headers.get("Authorization", "")
+    if authorization.lower().startswith("bearer "):
+        return authorization.split(" ", 1)[1].strip()
+
+    cookie_token = request.cookies.get("access_token")
+    if cookie_token:
+        return cookie_token
+    return None
+
+
 def get_current_user(
+    request: Request,
     db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme),
 ) -> User:
+    token = _extract_token(request) if request is not None else None
+    if not token:
+        raise _auth_error()
     return _resolve_user_from_token(db, token)
 
 
 def get_current_user_optional(
+    request: Request,
     db: Session = Depends(get_db),
-    token: str | None = Depends(oauth2_scheme_optional),
 ) -> User | None:
+    token = _extract_token(request) if request is not None else None
     if token is None:
         return None
-    return _resolve_user_from_token(db, token)
+    try:
+        return _resolve_user_from_token(db, token)
+    except HTTPException:
+        return None
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:

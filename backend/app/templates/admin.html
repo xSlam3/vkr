@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+<main class="app-shell">
+  <div class="page page--app">
+    {% if message %}<div class="notice success page-notice">{{ message }}</div>{% endif %}
+    {% if error %}<div class="notice error page-notice">{{ error }}</div>{% endif %}
+
+    <section class="admin-stack">
+      <div class="admin-card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Администрирование</p>
+            <h3>Пользователи</h3>
+          </div>
+        </div>
+        <form action="/admin/users" method="post">
+          <div class="row two">
+            <label>
+              Логин
+              <input name="username" required />
+            </label>
+            <label>
+              Роль
+              <select name="role">
+                <option value="employee">Сотрудник</option>
+                <option value="admin">Администратор</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            Пароль
+            <input name="password" type="password" required />
+          </label>
+          <button type="submit">Создать пользователя</button>
+        </form>
+        <div class="items compact-items">
+          {% for user in users %}
+          <article class="item">
+            <div class="item-title">
+              <strong>{{ user.username }}</strong>
+              <span class="badge">{{ user.role }}</span>
+            </div>
+            <p class="helper">Создан: {{ user.created_at }}</p>
+          </article>
+          {% else %}
+          <div class="empty">Пользователи пока не созданы.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <nav class="bottom-nav" aria-label="Навигация по сайту">
+    {% for item in bottom_nav %}
+    <a href="{{ item.href }}" class="bottom-nav__item{% if item.active %} is-active{% endif %}">
+      <span class="bottom-nav__icon">{{ item.icon }}</span>
+      <span class="bottom-nav__label">{{ item.label }}</span>
+    </a>
+    {% endfor %}
+    <details class="mobile-profile">
+      <summary class="bottom-nav__item mobile-profile__toggle">
+        <span class="bottom-nav__icon">◉</span>
+        <span class="bottom-nav__label">Профиль</span>
+      </summary>
+      <div class="mobile-profile__panel">
+        <strong>{{ current_user.username }}</strong>
+        <span>{{ current_user.role }}</span>
+        <form action="/logout" method="post">
+          <button type="submit">Выйти</button>
+        </form>
+      </div>
+    </details>
+  </nav>
+</main>
+{% endblock %}

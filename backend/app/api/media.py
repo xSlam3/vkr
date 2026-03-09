@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import RedirectResponse
 
 from app.api.deps import get_current_user
 from app.models.user import User
@@ -26,3 +27,12 @@ def presign_download(
     _: User = Depends(get_current_user),
 ):
     return S3Service.create_presigned_download(key)
+
+
+@router.get("/file")
+def media_file(
+    key: str = Query(min_length=3),
+    _: User = Depends(get_current_user),
+):
+    payload = S3Service.create_presigned_download(key)
+    return RedirectResponse(payload["url"], status_code=307)
