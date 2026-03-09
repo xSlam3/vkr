@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: jewelry-onboarding-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.local
+    environment:
+      DATABASE_URL: sqlite:////data/app.db
+      VECTOR_DB_PATH: /data/vector_db
+      HF_HOME: /data/huggingface
+      TRANSFORMERS_CACHE: /data/huggingface
+      SENTENCE_TRANSFORMERS_HOME: /data/sentence_transformers
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      VECTOR_DB_ENABLED: ${VECTOR_DB_ENABLED:-true}
+      CHAT_USE_LLM: ${CHAT_USE_LLM:-true}
+      LLM_API_URL: ${LLM_API_URL:-https://openrouter.ai/api/v1}
+      LLM_MODEL: ${LLM_MODEL:-qwen/qwen3-next-80b-a3b-instruct:free}
+      LLM_HTTP_REFERER: ${LLM_HTTP_REFERER:-http://localhost}
+      LLM_APP_NAME: ${LLM_APP_NAME:-Jewelry Onboarding}
+    volumes:
+      - app_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+volumes:
+  app_data:
