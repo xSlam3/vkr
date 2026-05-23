@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 import html
 import re
 from dataclasses import dataclass
@@ -32,6 +33,51 @@ class VectorService:
         cls._embedder = None
 
     @classmethod
+    def is_ready(cls) -> bool:
+        return cls._ensure_ready()
+
+    @classmethod
+    def warmup(cls) -> bool:
+        if not cls._ensure_ready():
+            return False
+
+        try:
+            cls._embedder.encode(["warmup"], normalize_embeddings=True)
+            return True
+        except Exception:
+            cls._ready = False
+            return False
+
+    @classmethod
+    def recreate_collection(cls) -> bool:
+        if not cls._ensure_ready():
+            return False
+
+        try:
+            cls._client.delete_collection(settings.VECTOR_COLLECTION)
+        except Exception:
+            pass
+
+        cls.reset_cache()
+        return cls._ensure_ready()
+
+    @classmethod
+    def sync_articles(cls, articles: Iterable[Any]) -> int:
+        if not cls._ensure_ready():
+            return 0
+
+        indexed_count = 0
+        for article in articles:
+            cls.upsert_article(
+                article_id=article.id,
+                title=article.title,
+                text_content=article.text_content,
+                category_id=article.category_id,
+            )
+            indexed_count += 1
+        return indexed_count
+
+    @classmethod
     def _ensure_ready(cls) -> bool:
         if cls._ready is not None:
             return cls._ready
@@ -59,6 +105,11 @@ class VectorService:
         except Exception:
             cls._ready = False
             return False
+
+    @classmethod
+    def _reconnect_collection(cls) -> bool:
+        cls.reset_cache()
+        return cls._ensure_ready()
 
     @staticmethod
     def _chunk_text(text: str) -> list[str]:
@@ -109,19 +160,38 @@ class VectorService:
             for idx in range(len(chunks))
         ]
 
-        cls._collection.delete(where={"article_id": article_id})
-        cls._collection.upsert(
-            ids=ids,
-            documents=chunks,
-            metadatas=metadatas,
-            embeddings=vectors,
-        )
+        try:
+            cls._collection.delete(where={"article_id": article_id})
+        except Exception:
+            if not cls._reconnect_collection():
+                return
+        try:
+            cls._collection.upsert(
+                ids=ids,
+                documents=chunks,
+                metadatas=metadatas,
+                embeddings=vectors,
+            )
+        except Exception:
+            if not cls._reconnect_collection():
+                return
+            cls._collection.upsert(
+                ids=ids,
+                documents=chunks,
+                metadatas=metadatas,
+                embeddings=vectors,
+            )
 
     @classmethod
     def delete_article(cls, article_id: str) -> None:
         if not cls._ensure_ready():
             return
-        cls._collection.delete(where={"article_id": article_id})
+        try:
+            cls._collection.delete(where={"article_id": article_id})
+        except Exception:
+            if not cls._reconnect_collection():
+                return
+            cls._collection.delete(where={"article_id": article_id})
 
     @classmethod
     def search(
@@ -148,7 +218,15 @@ class VectorService:
         if category_id:
             params["where"] = {"category_id": category_id}
 
-        result = cls._collection.query(**params)
+        try:
+            result = cls._collection.query(**params)
+        except Exception:
+            if not cls._reconnect_collection():
+                return []
+            try:
+                result = cls._collection.query(**params)
+            except Exception:
+                return []
         documents = (result.get("documents") or [[]])[0]
         metadatas = (result.get("metadatas") or [[]])[0]
         distances = (result.get("distances") or [[]])[0]

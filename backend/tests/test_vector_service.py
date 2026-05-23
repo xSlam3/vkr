@@ -42,6 +42,11 @@ class FakeCollection:
         }
 
 
+class BrokenCollection:
+    def query(self, **kwargs):
+        raise RuntimeError("broken index")
+
+
 @pytest.fixture(autouse=True)
 def reset_vector_state():
     VectorService.reset_cache()
@@ -93,4 +98,18 @@ def test_search_parses_result_and_scores(monkeypatch: pytest.MonkeyPatch):
 
 def test_search_returns_empty_when_not_ready(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(VectorService, "_ensure_ready", classmethod(lambda cls: False))
+    assert VectorService.search(query="test") == []
+
+
+def test_search_returns_empty_when_query_still_fails_after_reconnect(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(VectorService, "_ensure_ready", classmethod(lambda cls: True))
+    monkeypatch.setattr(VectorService, "_embedder", FakeEmbedder())
+    monkeypatch.setattr(VectorService, "_collection", BrokenCollection())
+
+    def fake_reconnect(cls):
+        cls._collection = BrokenCollection()
+        return True
+
+    monkeypatch.setattr(VectorService, "_reconnect_collection", classmethod(fake_reconnect))
+
     assert VectorService.search(query="test") == []

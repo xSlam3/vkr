@@ -116,6 +116,19 @@
         </p>
       </article>
     </section>
+
+    <div class="attachment-viewer" id="attachment-viewer" hidden>
+      <div class="attachment-viewer__backdrop" data-attachment-viewer-close></div>
+      <div class="attachment-viewer__dialog" role="dialog" aria-modal="true" aria-label="Просмотр вложения">
+        <button type="button" class="attachment-viewer__close" data-attachment-viewer-close aria-label="Закрыть">×</button>
+        <div class="attachment-viewer__controls" data-attachment-viewer-controls hidden>
+          <button type="button" class="attachment-viewer__control" data-zoom-out aria-label="Уменьшить">−</button>
+          <button type="button" class="attachment-viewer__control" data-zoom-reset>100%</button>
+          <button type="button" class="attachment-viewer__control" data-zoom-in aria-label="Увеличить">+</button>
+        </div>
+        <div class="attachment-viewer__content" data-attachment-viewer-content></div>
+      </div>
+    </div>
   </div>
 
   <nav class="bottom-nav" aria-label="Навигация по сайту">
@@ -145,4 +158,155 @@
 {% block page_scripts %}
   {{ super() }}
   <script src="/static/onboarding-editor.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const viewer = document.getElementById("attachment-viewer");
+      const viewerContent = viewer?.querySelector("[data-attachment-viewer-content]");
+      const viewerControls = viewer?.querySelector("[data-attachment-viewer-controls]");
+      const zoomOutButton = viewer?.querySelector("[data-zoom-out]");
+      const zoomInButton = viewer?.querySelector("[data-zoom-in]");
+      const zoomResetButton = viewer?.querySelector("[data-zoom-reset]");
+      let zoomImage = null;
+      let zoomScale = 1;
+
+      const applyImageZoom = () => {
+        if (!zoomImage) {
+          return;
+        }
+
+        zoomImage.style.transform = `scale(${zoomScale})`;
+        zoomImage.style.cursor = zoomScale > 1 ? "grab" : "zoom-in";
+        if (zoomResetButton) {
+          zoomResetButton.textContent = `${Math.round(zoomScale * 100)}%`;
+        }
+      };
+
+      const setImageZoom = (nextScale) => {
+        zoomScale = Math.min(4, Math.max(1, Number(nextScale.toFixed(2))));
+        applyImageZoom();
+      };
+
+      const setupImageZoom = () => {
+        zoomImage = viewerContent?.querySelector("img") || null;
+        zoomScale = 1;
+
+        if (!viewerControls) {
+          return;
+        }
+
+        viewerControls.hidden = !zoomImage;
+        if (!zoomImage) {
+          return;
+        }
+
+        zoomImage.classList.add("attachment-viewer__zoomable-image");
+        applyImageZoom();
+
+        zoomImage.addEventListener(
+          "wheel",
+          (event) => {
+            event.preventDefault();
+            const delta = event.deltaY < 0 ? 0.2 : -0.2;
+            setImageZoom(zoomScale + delta);
+          },
+          { passive: false },
+        );
+
+        zoomImage.addEventListener("click", () => {
+          setImageZoom(zoomScale > 1 ? 1 : 2);
+        });
+      };
+
+      const openViewer = (node) => {
+        if (!viewer || !viewerContent) {
+          return;
+        }
+
+        viewerContent.innerHTML = "";
+        const clone = node.cloneNode(true);
+        clone.querySelectorAll?.("button").forEach((button) => button.remove());
+        viewerContent.appendChild(clone);
+        setupImageZoom();
+        viewer.hidden = false;
+        document.body.classList.add("modal-open");
+      };
+
+      const closeViewer = () => {
+        if (!viewer || !viewerContent) {
+          return;
+        }
+
+        viewer.hidden = true;
+        viewerContent.innerHTML = "";
+        zoomImage = null;
+        zoomScale = 1;
+        if (viewerControls) {
+          viewerControls.hidden = true;
+        }
+        document.body.classList.remove("modal-open");
+      };
+
+      viewer?.querySelectorAll("[data-attachment-viewer-close]").forEach((button) => {
+        button.addEventListener("click", closeViewer);
+      });
+
+      zoomOutButton?.addEventListener("click", () => setImageZoom(zoomScale - 0.2));
+      zoomInButton?.addEventListener("click", () => setImageZoom(zoomScale + 0.2));
+      zoomResetButton?.addEventListener("click", () => setImageZoom(1));
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && viewer && !viewer.hidden) {
+          closeViewer();
+        }
+      });
+
+      const decorateAttachment = (node) => {
+        if (!node || !node.parentElement || node.classList.contains("rich-attachment")) {
+          return;
+        }
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "rich-attachment";
+        node.parentNode.insertBefore(wrapper, node);
+        wrapper.appendChild(node);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "rich-attachment__expand";
+        button.setAttribute("aria-label", "Открыть вложение на весь экран");
+        button.textContent = "⤢";
+        button.addEventListener("click", () => openViewer(node));
+        wrapper.appendChild(button);
+      };
+
+      document.querySelectorAll(".rich-content table").forEach((table) => {
+        if (table.parentElement && table.parentElement.classList.contains("rich-table-scroll")) {
+          return;
+        }
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "rich-table-scroll";
+        table.parentNode.insertBefore(wrapper, table);
+        wrapper.appendChild(table);
+      });
+
+      document.querySelectorAll(".rich-content figure, .rich-content .rich-table-scroll").forEach((node) => {
+        decorateAttachment(node);
+      });
+
+      document.querySelectorAll(".rich-content img, .rich-content video").forEach((node) => {
+        if (node.closest(".rich-attachment") || node.closest("figure") || node.closest(".rich-table-scroll")) {
+          return;
+        }
+
+        const parent = node.parentElement;
+        const isStandaloneParagraph =
+          parent.matches("p") &&
+          parent.children.length === 1 &&
+          !parent.textContent.trim();
+
+        decorateAttachment(isStandaloneParagraph ? parent : node);
+      });
+    });
+  </script>
 {% endblock %}

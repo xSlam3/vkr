@@ -44,10 +44,16 @@ class ChatHistoryService:
         if session_id:
             session = ChatHistoryService.get_session(db, current_user, session_id)
         else:
-            session = ChatRepository.create_session(db, current_user.id, ChatHistoryService._build_title(question))
+            session = ChatRepository.create_session(
+                db,
+                current_user.id,
+                ChatHistoryService._build_title(question),
+            )
 
+        clean_question = (question or "").strip()
+        clean_answer = (answer or "").strip()
         sort_order = ChatRepository.next_sort_order(db, session.id)
-        ChatRepository.create_message(db, session.id, ChatMessageRole.user, question, sort_order)
-        ChatRepository.create_message(db, session.id, ChatMessageRole.assistant, answer, sort_order + 1)
+        ChatRepository.create_message(db, session.id, ChatMessageRole.user, clean_question, sort_order)
+        ChatRepository.create_message(db, session.id, ChatMessageRole.assistant, clean_answer, sort_order + 1)
         ChatRepository.touch_session(db, session)
         return session

@@ -72,12 +72,16 @@
           </div>
           <div class="items">
             {% for article in recent_articles %}
-            <article class="item">
-              <div class="item-title">
-                <strong>{{ article.title }}</strong>
+            <article class="item dashboard-article-card">
+              <div class="dashboard-article-card__header">
+                <h3 class="dashboard-article-card__title">{{ article.title }}</h3>
                 <span class="badge">{{ article.category_name }}</span>
               </div>
-              <p>{{ article.text_content }}</p>
+              <p class="dashboard-article-card__preview">{{ article.text_preview }}</p>
+              <div class="dashboard-article-card__footer">
+                <span class="article-meta">Обновлено: {{ article.updated_at }}</span>
+                <a href="/knowledge/{{ article.id }}" class="button-link secondary dashboard-article-card__link">Открыть</a>
+              </div>
             </article>
             {% else %}
             <div class="empty">Пока нет статей.</div>

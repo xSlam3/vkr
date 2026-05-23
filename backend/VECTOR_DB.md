@@ -2,7 +2,7 @@
 
 ## Install packages
 ```powershell
-.\venv\Scripts\pip install chromadb sentence-transformers
+.\venv\Scripts\pip install -r requirements.txt
 ```
 
 ## Environment variables
@@ -17,12 +17,12 @@ $env:VECTOR_TOP_K="4"
 $env:VECTOR_MIN_SCORE="0.25"
 ```
 
-## Optional LLM (OpenAI-compatible, LM Studio, etc.)
+## Optional LLM (OpenRouter)
 ```powershell
 $env:CHAT_USE_LLM="true"
-$env:LLM_API_URL="http://127.0.0.1:1234/v1"
-$env:LLM_MODEL="qwen2.5-7b-instruct"
-$env:LLM_API_KEY=""
+$env:LLM_API_URL="https://openrouter.ai/api/v1"
+$env:LLM_MODEL="qwen/qwen3-next-80b-a3b-instruct:free"
+$env:LLM_API_KEY="replace-with-your-openrouter-key"
 $env:LLM_TEMPERATURE="0.1"
 ```
 

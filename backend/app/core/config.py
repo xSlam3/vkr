@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parents[2]
+
 
 def _load_env_file() -> None:
     candidate_paths = [
@@ -51,7 +53,8 @@ class Settings:
     S3_PRESIGNED_EXPIRES_SECONDS: int = int(os.getenv("S3_PRESIGNED_EXPIRES_SECONDS", "300"))
     S3_MAX_FILE_SIZE_MB: int = int(os.getenv("S3_MAX_FILE_SIZE_MB", "50"))
     VECTOR_DB_ENABLED: bool = _env_bool("VECTOR_DB_ENABLED", False)
-    VECTOR_DB_PATH: str = os.getenv("VECTOR_DB_PATH", "./vector_db")
+    VECTOR_SYNC_ON_STARTUP: bool = _env_bool("VECTOR_SYNC_ON_STARTUP", False)
+    VECTOR_DB_PATH: str = os.getenv("VECTOR_DB_PATH", str((BASE_DIR / "vector_db").resolve()))
     VECTOR_COLLECTION: str = os.getenv("VECTOR_COLLECTION", "knowledge_chunks")
     EMBED_MODEL: str = os.getenv(
         "EMBED_MODEL",
@@ -66,7 +69,8 @@ class Settings:
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "")
     LLM_TEMPERATURE: float = _env_float("LLM_TEMPERATURE", 0.1)
-    LLM_APP_NAME: str = os.getenv("LLM_APP_NAME", "Jewelry Onboarding")
+    LLM_TIMEOUT_SECONDS: float = _env_float("LLM_TIMEOUT_SECONDS", 8.5)
+    LLM_APP_NAME: str = os.getenv("LLM_APP_NAME", "GemGuide.space")
     LLM_HTTP_REFERER: str = os.getenv("LLM_HTTP_REFERER", "http://localhost")
 
 

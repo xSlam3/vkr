@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.user import User, UserRole
 from app.repositories.user_repo import UserRepository
-from app.schemas.knowledge import CategoryCreate, KnowledgeArticleCreate
+from app.schemas.knowledge import CategoryCreate, KnowledgeArticleCreate, KnowledgeArticleUpdate
 from app.schemas.onboarding import OnboardingDayCreate, OnboardingDayUpdate
 from app.schemas.user import UserCreate
 from app.services.chat_service import ChatService
@@ -70,7 +70,7 @@ def _login_context(
     )
     return {
         "request": request,
-        "title": f"{heading} - Jewelry Onboarding",
+        "title": f"{heading} - GemGuide.space",
         "page_name": "login",
         "has_users": has_users,
         "heading": heading,
@@ -151,11 +151,59 @@ def _summarize_rich_text(value: str, max_length: int = 180) -> str:
     return plain[: max_length - 1].rstrip() + "…"
 
 
+def _format_chat_message(value: str) -> str:
+    escaped = html.escape((value or "").strip())
+    if not escaped:
+        return ""
+
+    normalized = escaped.replace("\r\n", "\n").replace("\r", "\n")
+
+    def replace_bold(match: re.Match[str]) -> str:
+        return f"<strong>{match.group(1).strip()}</strong>"
+
+    blocks: list[str] = []
+    for raw_block in re.split(r"\n{2,}", normalized):
+        block = raw_block.strip()
+        if not block:
+            continue
+        block = re.sub(r"\*\*(.+?)\*\*", replace_bold, block)
+        block = block.replace("\n", "<br>")
+        blocks.append(f"<p>{block}</p>")
+
+    return "".join(blocks)
+
+
 def _resolve_media_url(value: str) -> str:
     key = S3Service.key_from_url(value)
     if key:
         return f"/media/file?key={key}"
     return value
+
+
+def _optional_form_value(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized or normalized.lower() in {"none", "null", "undefined"}:
+        return None
+    return normalized
+
+
+def _parse_day_number(value: str | None, *, fallback: int | None = None) -> int:
+    normalized = _optional_form_value(value)
+    if normalized is None:
+        if fallback is not None:
+            return fallback
+        raise ValueError("Day number is required")
+    try:
+        return int(normalized)
+    except ValueError:
+        match = re.search(r"\d+", normalized)
+        if match:
+            return int(match.group())
+        if fallback is not None:
+            return fallback
+        raise ValueError(f"Invalid day number: {normalized}")
 
 
 def _rewrite_rich_media_sources(value: str) -> str:
@@ -179,6 +227,7 @@ def _serialize_articles(articles: list, categories: list) -> list[dict]:
             "title": article.title,
             "raw_text_content": article.text_content or "",
             "text_content": _rewrite_rich_media_sources(article.text_content or ""),
+            "text_preview": _summarize_rich_text(article.text_content or "", 220),
             "category_name": category_lookup.get(article.category_id, "Без категории"),
             "category_id": article.category_id,
             "updated_at": _format_datetime(article.updated_at),
@@ -195,6 +244,7 @@ def _serialize_chat_response(chat_response) -> dict | None:
         return None
     return {
         "answer": chat_response.answer,
+        "answer_html": _format_chat_message(chat_response.answer),
         "sources": [
             {
                 "title": source.title or source.article_id,
@@ -223,6 +273,7 @@ def _serialize_chat_messages(messages: list) -> list[dict]:
             "id": message.id,
             "role": message.role.value if hasattr(message.role, "value") else str(message.role),
             "content": message.content,
+            "content_html": _format_chat_message(message.content),
         }
         for message in messages
     ]
@@ -280,11 +331,11 @@ def _home_context(
         current_user,
     )
     categories = KnowledgeService.list_categories(db)
-    articles = KnowledgeService.list_articles(db)[:3]
+    all_articles = KnowledgeService.list_articles(db)
     context = _base_app_context(
         request,
         current_user,
-        title="Главная - Jewelry Onboarding",
+        title="Главная - GemGuide.space",
         page_name="dashboard-home",
         active_page="home",
         message=message,
@@ -295,10 +346,10 @@ def _home_context(
             "stats": [
                 {"label": "Дней адаптации", "value": len(onboarding_items), "href": "/onboarding"},
                 {"label": "Категорий", "value": len(categories), "href": "/knowledge"},
-                {"label": "Статей", "value": len(KnowledgeService.list_articles(db)), "href": "/knowledge"},
+                {"label": "Статей", "value": len(all_articles), "href": "/knowledge"},
             ],
             "recent_onboarding": onboarding_items[:3],
-            "recent_articles": _serialize_articles(articles, categories),
+            "recent_articles": _serialize_articles(all_articles[:3], categories),
             "quick_links": [
                 {"title": "Материалы адаптации", "text": "Открыть дни и отметить прогресс.", "href": "/onboarding"},
                 {"title": "База знаний", "text": "Поиск по статьям и категориям.", "href": "/knowledge"},
@@ -323,7 +374,7 @@ def _onboarding_context(
     context = _base_app_context(
         request,
         current_user,
-        title="Адаптация - Jewelry Onboarding",
+        title="Адаптация - GemGuide.space",
         page_name="onboarding",
         active_page="onboarding",
         message=message,
@@ -360,7 +411,7 @@ def _onboarding_day_context(
     context = _base_app_context(
         request,
         current_user,
-        title=f"День {day['day_number']} - Jewelry Onboarding",
+        title=f"День {day['day_number']} - GemGuide.space",
         page_name="onboarding-day",
         active_page="onboarding",
         message=message,
@@ -394,7 +445,7 @@ def _knowledge_context(
     context = _base_app_context(
         request,
         current_user,
-        title="База знаний - Jewelry Onboarding",
+        title="База знаний - GemGuide.space",
         page_name="knowledge",
         active_page="knowledge",
         message=message,
@@ -424,7 +475,7 @@ def _knowledge_article_context(
     context = _base_app_context(
         request,
         current_user,
-        title=f"{article['title']} - Jewelry Onboarding",
+        title=f"{article['title']} - GemGuide.space",
         page_name="knowledge-article",
         active_page="knowledge",
         message=message,
@@ -451,7 +502,7 @@ def _assistant_context(
     context = _base_app_context(
         request,
         current_user,
-        title="Ассистент - Jewelry Onboarding",
+        title="Ассистент - GemGuide.space",
         page_name="assistant",
         active_page="assistant",
         message=message,
@@ -477,11 +528,10 @@ def _admin_context(
     message: str | None = None,
     error: str | None = None,
 ) -> dict:
-    categories = KnowledgeService.list_categories(db)
     context = _base_app_context(
         request,
         current_user,
-        title="Администрирование - Jewelry Onboarding",
+        title="Администрирование - GemGuide.space",
         page_name="admin",
         active_page="admin",
         message=message,
@@ -711,11 +761,11 @@ async def create_day_page(
         OnboardingService.create_day(
             db,
             OnboardingDayCreate(
-                day_number=int(form.get("day_number", "0")),
+                day_number=_parse_day_number(form.get("day_number")),
                 title=form.get("title", ""),
                 text_content=form.get("text_content", ""),
-                media_url=form.get("media_url") or None,
-                media_type=form.get("media_type") or None,
+                media_url=_optional_form_value(form.get("media_url")),
+                media_type=_optional_form_value(form.get("media_type")),
             ),
         )
     except (HTTPException, ValidationError, ValueError) as exc:
@@ -739,15 +789,16 @@ async def update_day_page(
     _require_admin_page(current_user)
     form = await _read_form(request)
     try:
+        current_day = OnboardingService.get_day(db, day_id)
         OnboardingService.update_day(
             db,
             day_id,
             OnboardingDayUpdate(
-                day_number=int(form.get("day_number", "0")),
+                day_number=_parse_day_number(form.get("day_number"), fallback=current_day.day_number),
                 title=form.get("title", ""),
                 text_content=form.get("text_content", ""),
-                media_url=form.get("media_url") or None,
-                media_type=form.get("media_type") or None,
+                media_url=_optional_form_value(form.get("media_url")),
+                media_type=_optional_form_value(form.get("media_type")),
             ),
         )
     except (HTTPException, ValidationError, ValueError) as exc:
@@ -839,8 +890,8 @@ async def create_article_page(
             KnowledgeArticleCreate(
                 title=form.get("title", ""),
                 text_content=form.get("text_content", ""),
-                media_url=form.get("media_url") or None,
-                media_type=form.get("media_type") or None,
+                media_url=_optional_form_value(form.get("media_url")),
+                media_type=_optional_form_value(form.get("media_type")),
                 category_id=form.get("category_id", ""),
             ),
             current_user,
@@ -867,8 +918,8 @@ async def update_article_page(
             KnowledgeArticleUpdate(
                 title=form.get("title") or None,
                 text_content=form.get("text_content") or None,
-                media_url=form.get("media_url") or None,
-                media_type=form.get("media_type") or None,
+                media_url=_optional_form_value(form.get("media_url")),
+                media_type=_optional_form_value(form.get("media_type")),
                 category_id=form.get("category_id") or None,
             ),
             current_user,
@@ -900,7 +951,7 @@ async def ask_chat_page(
     current_user: User = Depends(get_current_user),
 ):
     form = await _read_form(request)
-    question = form.get("question", "")
+    question = (form.get("question", "") or "").strip()
     chat_id = form.get("chat_id", "")
     if not question:
         return templates.TemplateResponse(
@@ -911,6 +962,7 @@ async def ask_chat_page(
         )
     try:
         response = ChatService.ask(
+            db=db,
             question=question,
             category_id=None,
             top_k=max(settings.VECTOR_TOP_K, 8),

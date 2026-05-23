@@ -176,6 +176,124 @@ def test_day_number_must_be_unique(client: TestClient):
     assert duplicate.json()["detail"] == "Day number already exists"
 
 
+def test_web_update_day_accepts_none_like_media_values_when_renaming(client: TestClient):
+    _create_user(client, "admin", "123456", "admin")
+    admin_token = _login(client, "admin", "123456")
+
+    created = _create_day(client, admin_token, 1, "Day 1")
+    day_id = created.json()["id"]
+
+    login_response = client.post(
+        "/login",
+        data={"username": "admin", "password": "123456"},
+        follow_redirects=False,
+    )
+    assert login_response.status_code == 303
+
+    update_response = client.post(
+        f"/admin/onboarding/{day_id}/update",
+        data={
+            "day_number": "1",
+            "title": "Updated Day 1",
+            "text_content": "Day 1 content",
+            "media_url": "None",
+            "media_type": "None",
+        },
+        cookies=login_response.cookies,
+        follow_redirects=False,
+    )
+    assert update_response.status_code == 303
+    assert "/onboarding/" in update_response.headers["location"]
+    assert "error=" not in update_response.headers["location"]
+
+    updated_day = client.get(
+        f"/onboarding/days/{day_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert updated_day.status_code == 200
+    assert updated_day.json()["title"] == "Updated Day 1"
+    assert updated_day.json()["media_url"] is None
+    assert updated_day.json()["media_type"] is None
+
+
+def test_web_update_day_keeps_current_day_number_when_form_omits_it(client: TestClient):
+    _create_user(client, "admin", "123456", "admin")
+    admin_token = _login(client, "admin", "123456")
+
+    created = _create_day(client, admin_token, 1, "Day 1")
+    day_id = created.json()["id"]
+
+    login_response = client.post(
+        "/login",
+        data={"username": "admin", "password": "123456"},
+        follow_redirects=False,
+    )
+    assert login_response.status_code == 303
+
+    update_response = client.post(
+        f"/admin/onboarding/{day_id}/update",
+        data={
+            "day_number": "",
+            "title": "Renamed Day 1",
+            "text_content": "Day 1 content",
+            "media_url": "",
+            "media_type": "",
+        },
+        cookies=login_response.cookies,
+        follow_redirects=False,
+    )
+    assert update_response.status_code == 303
+    assert "/onboarding/" in update_response.headers["location"]
+    assert "error=" not in update_response.headers["location"]
+
+    updated_day = client.get(
+        f"/onboarding/days/{day_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert updated_day.status_code == 200
+    assert updated_day.json()["title"] == "Renamed Day 1"
+    assert updated_day.json()["day_number"] == 1
+
+
+def test_web_update_day_accepts_human_readable_day_number_value(client: TestClient):
+    _create_user(client, "admin", "123456", "admin")
+    admin_token = _login(client, "admin", "123456")
+
+    created = _create_day(client, admin_token, 1, "Day 1")
+    day_id = created.json()["id"]
+
+    login_response = client.post(
+        "/login",
+        data={"username": "admin", "password": "123456"},
+        follow_redirects=False,
+    )
+    assert login_response.status_code == 303
+
+    update_response = client.post(
+        f"/admin/onboarding/{day_id}/update",
+        data={
+            "day_number": "День 1",
+            "title": "Renamed Day Human Value",
+            "text_content": "Day 1 content",
+            "media_url": "",
+            "media_type": "",
+        },
+        cookies=login_response.cookies,
+        follow_redirects=False,
+    )
+    assert update_response.status_code == 303
+    assert "/onboarding/" in update_response.headers["location"]
+    assert "error=" not in update_response.headers["location"]
+
+    updated_day = client.get(
+        f"/onboarding/days/{day_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert updated_day.status_code == 200
+    assert updated_day.json()["title"] == "Renamed Day Human Value"
+    assert updated_day.json()["day_number"] == 1
+
+
 def test_onboarding_requires_auth(client: TestClient):
     _create_user(client, "admin", "123456", "admin")
 

@@ -49,26 +49,22 @@
 
           {% for message in chat_messages %}
           <article class="assistant-chat__message assistant-chat__message--{{ 'user' if message.role == 'user' else 'bot' }}">
-            <div class="assistant-chat__bubble assistant-chat__bubble--{{ 'user' if message.role == 'user' else 'bot' }}">{{ message.content }}</div>
+            <div class="assistant-chat__bubble assistant-chat__bubble--{{ 'user' if message.role == 'user' else 'bot' }}"><div class="assistant-chat__formatted">{{ message.content_html | safe }}</div></div>
           </article>
           {% endfor %}
 
           {% if chat_response and not chat_messages %}
           <article class="assistant-chat__message assistant-chat__message--bot">
-            <div class="assistant-chat__bubble assistant-chat__bubble--bot">{{ chat_response.answer }}</div>
+            <div class="assistant-chat__bubble assistant-chat__bubble--bot"><div class="assistant-chat__formatted">{{ chat_response.answer_html | safe }}</div></div>
           </article>
           {% endif %}
         </div>
 
         <div class="assistant-chat__composer-wrap">
-          <form action="/assistant/ask" method="post" class="assistant-chat__composer">
+          <form action="/assistant/ask" method="post" class="assistant-chat__composer" data-chat-composer>
             <input type="hidden" name="chat_id" value="{{ active_chat_id }}" />
             <label class="assistant-chat__input">
-              <textarea
-                name="question"
-                required
-                placeholder="&#1057;&#1087;&#1088;&#1086;&#1089;&#1080;&#1090;&#1077; &#1072;&#1089;&#1089;&#1080;&#1089;&#1090;&#1077;&#1085;&#1090;&#1072; &#1087;&#1086; &#1073;&#1072;&#1079;&#1077; &#1079;&#1085;&#1072;&#1085;&#1080;&#1081;"
-              >{{ chat_question }}</textarea>
+              <textarea name="question" required placeholder="&#1057;&#1087;&#1088;&#1086;&#1089;&#1080;&#1090;&#1077; &#1072;&#1089;&#1089;&#1080;&#1089;&#1090;&#1077;&#1085;&#1090;&#1072; &#1087;&#1086; &#1073;&#1072;&#1079;&#1077; &#1079;&#1085;&#1072;&#1085;&#1080;&#1081;" data-chat-input>{{ chat_question }}</textarea>
             </label>
             <button type="submit" class="assistant-chat__submit" aria-label="&#1054;&#1090;&#1087;&#1088;&#1072;&#1074;&#1080;&#1090;&#1100;">&uarr;</button>
           </form>
@@ -100,4 +96,30 @@
     </details>
   </nav>
 </main>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  (() => {
+    const form = document.querySelector("[data-chat-composer]");
+    const input = document.querySelector("[data-chat-input]");
+    if (!form || !input) {
+      return;
+    }
+
+    input.addEventListener("keydown", (event) => {
+      const isDesktop = window.matchMedia("(min-width: 981px)").matches;
+      if (!isDesktop || event.key !== "Enter" || event.shiftKey || event.isComposing) {
+        return;
+      }
+
+      event.preventDefault();
+      if (!input.value.trim()) {
+        return;
+      }
+
+      form.requestSubmit();
+    });
+  })();
+</script>
 {% endblock %}
